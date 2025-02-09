@@ -1,55 +1,58 @@
 import os
-import re
 import sys
 import json
-import openpyxl
-from openpyxl import load_workbook
+import pandas as pd
 
+# 📌 Chemins et fichiers
+path_excel = "translate.xlsx"  # Fichier Excel à traiter
+sheet_name = "translate"        # Nom de la feuille Excel
+path_output = "json_output"     # Dossier où sauvegarder les JSON
 
-def transform_excel_to_json(path_excel, sheet_name):
-    workbook = load_workbook(filename = path_excel)
-    worksheet = workbook[sheet_name]
-    print(worksheet.max_row, worksheet.max_column)
-    print(worksheet.cell(row=1, column=1).value)
-    object_json = {}
-    #on parcourt la colonne des indentifiants
-    for col in range(2, worksheet.max_column + 1):
-        language_code = worksheet.cell(row=1, column=col).value # on récupère le code de la langue
-        if language_code and len(language_code) == 2:
-            object_json[language_code] = {}
-            for row in range(2, worksheet.max_row + 1):
-                identifier = worksheet.cell(row=row, column=1).value
-                password = worksheet.cell(row=row, column=col).value # on récupère le mot de passe
-                object_json[language_code][identifier] = password
-    print(f"object_json: {object_json}")
-    return object_json
+# 📂 Vérifier si le fichier Excel existe
+if not os.path.exists(path_excel):
+    print(f"❌ ERREUR : Le fichier '{path_excel}' n'existe pas.")
+    sys.exit(1)
 
-def create_json_files(path_output, json_object):
-    for key in json_object.keys():
-        if re.search(r'\w{2}', key): # on vérifie que la clé est bien un code de langue
-            create_json_file(os.path.join(path_output, f"{key}.json" ), json_object[key])
+# 📖 Lire le fichier Excel
+try:
+    df = pd.read_excel(path_excel, sheet_name=sheet_name, header=0)  # Lire le fichier avec pandas
+    df.columns = df.columns.str.strip()  # Supprime les espaces cachés autour des noms de colonnes
+    df.columns = df.columns.str.upper()  # Met tous les noms de colonnes en majuscules
 
-def create_json_file(path_json, json_obj):
-    with open(path_json, "w") as file:
-        json.dump(json_obj, file, indent = 4)
+    print(f"📌 Colonnes détectées : {df.columns.tolist()}")  # Afficher les colonnes trouvées
 
+    # 🔍 Vérifier si "KEYS" existe après nettoyage
+    if "KEYS" not in df.columns:
+        print("❌ ERREUR : La colonne 'Keys' est introuvable. Vérifiez votre fichier Excel.")
+        sys.exit(1)
 
-#def file_exist(path):
-    #return os.path.exists(path) 
+    # 📌 Vérifier si les langues FR et EN existent
+    languages = [lang for lang in ["FR", "EN"] if lang in df.columns]
 
+    if not languages:
+        print("❌ ERREUR : Les colonnes 'FR' et 'EN' sont introuvables !")
+        sys.exit(1)
 
-def parser_translate_excel_to_json(path_excel, sheet_name, path_output):
-    json_object = transform_excel_to_json(path_excel, sheet_name)
-    create_json_files(path_output, json_object)
+    print(f"✅ Langues détectées : {languages}")
 
-if __name__ == "__main__":
+    # 🏗 Transformer les données en dictionnaires JSON
+    translations = {lang: dict(zip(df["KEYS"], df[lang].fillna(""))) for lang in languages} 
+                        # Créer un dictionnaire pour chaque langue # A simplifier
+                        #.fillna : remplace les valeurs NaN par une chaîne vide
+                        #.zip : fusionne les colonnes KEYS et la langue actuelle
+                        #.dict : convertit les tuples en dictionnaires
+                        #.df.set_index : définit la colonne KEYS comme index
 
-    path_excel = "translate.xlsx"
-    sheet_name = "translate"
-    path_output = r"C:\workspace\excel_to_json"
-    if not os.path.exists(path_excel): # tester que le fichier excel existe
-        sys.exit(0)
-    # tester que output exist
-    parser_translate_excel_to_json(path_excel, sheet_name, path_output)
+    # 📂 Créer le dossier de sortie s'il n'existe pas
+    os.makedirs(path_output, exist_ok=True)
 
+    # 💾 Sauvegarder chaque langue en fichier JSON
+    for lang, data in translations.items():
+        json_path = os.path.join(path_output, f"{lang.lower()}.json")
+        with open(json_path, "w", encoding="utf-8") as json_file:
+            json.dump(data, json_file, ensure_ascii=False, indent=4)
+        print(f"✅ Fichier JSON créé : {json_path}")
 
+except Exception as e:
+    print(f"❌ Erreur lors du traitement du fichier Excel : {e}")
+    sys.exit(1)
