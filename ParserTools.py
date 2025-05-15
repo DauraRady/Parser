@@ -14,11 +14,11 @@ if not os.path.exists(path_excel):
 
 
 try:
-    df = pd.read_excel(path_excel, sheet_name=sheet_name, header=0)  # Lire le fichier avec pandas
-    df.columns = df.columns.str.strip()  # Supprime les espaces cachés autour des noms de colonnes
-    df.columns = df.columns.str.upper()  # Met tous les noms de colonnes en majuscules
+    df = pd.read_excel(path_excel, sheet_name=sheet_name, header=0)  
+    df.columns = df.columns.str.strip()  
+    df.columns = df.columns.str.upper()  
 
-    print(f"📌 Colonnes détectées : {df.columns.tolist()}")  # Afficher les colonnes trouvées
+    print(f"📌 Colonnes détectées : {df.columns.tolist()}")  
 
     
     if "KEYS" not in df.columns:
